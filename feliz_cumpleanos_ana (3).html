@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Feliz Cumpleaños Ana</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Cormorant+Garamond:ital,wght@1,300&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+    background: radial-gradient(ellipse at 50% 120%, #fce4ef 0%, #f9d0e4 35%, #f5c0da 65%, #eeb0d2 100%);
+  }
+  canvas { position:fixed; top:0; left:0; width:100%; height:100%; display:block; }
+  .overlay {
+    position:fixed; z-index:10; text-align:center;
+    pointer-events:none;
+    bottom: 4vh; left:50%; transform:translateX(-50%);
+    width:92vw;
+    animation: fadeUp 2s ease 1.5s both;
+  }
+  .title {
+    font-family:'Cormorant Garamond', serif;
+    font-size:clamp(0.95rem, 4.5vw, 2rem);
+    font-style:italic; font-weight:300; color:#8a1c45;
+    letter-spacing:0.2em; text-transform:uppercase;
+    text-shadow:0 1px 16px rgba(255,255,255,0.99), 0 0 40px #fce8f0;
+    white-space:nowrap;
+  }
+  .name {
+    font-family:'Playfair Display', serif;
+    font-size:clamp(3.8rem, 17vw, 9rem);
+    font-style:italic; font-weight:700; color:#7a1038;
+    line-height:0.88;
+    text-shadow:0 2px 0 #fce8f0, 0 6px 28px rgba(255,200,220,0.9), 0 0 80px rgba(255,155,195,0.45);
+  }
+  .subtitle {
+    font-family:'Cormorant Garamond', serif;
+    font-size:clamp(0.82rem, 3.8vw, 1.45rem);
+    font-style:italic; font-weight:300; color:#a0395e;
+    letter-spacing:0.14em; margin-top:0.55rem;
+    text-shadow:0 1px 12px rgba(255,255,255,0.97);
+    white-space:nowrap;
+  }
+  .hl { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5; }
+  .h  { position:absolute; color:#d4607a; opacity:0; animation:fh 7s ease-in infinite; }
+  .sp { position:absolute; width:3px; height:3px; border-radius:50%; background:#fff; opacity:0; animation:sp 3s ease-in-out infinite; }
+  @keyframes fh {
+    0%   { opacity:0; transform:translateY(0) scale(0.5) rotate(-12deg); }
+    18%  { opacity:0.6; }
+    85%  { opacity:0.25; }
+    100% { opacity:0; transform:translateY(-75px) scale(1.1) rotate(14deg); }
+  }
+  @keyframes sp    { 0%,100%{opacity:0;transform:scale(0)} 50%{opacity:0.85;transform:scale(1.5)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(18px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hl" id="hl"></div>
+<div class="overlay">
+  <div class="title">Feliz Cumpleaños</div>
+  <div class="name">Ana</div>
+  <div class="subtitle">Con todo el amor del mundo 🌹</div>
+</div>
+
+<script>
+const cv = document.getElementById('c');
+const ct = cv.getContext('2d');
+const isMob = window.innerWidth < 600 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const DPR   = Math.min(window.devicePixelRatio || 1, 2);
+let W, H; // CSS pixels
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width  = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ct.setTransform(DPR,0,0,DPR,0,0);
+}
+resize();
+window.addEventListener('resize', () => { resize(); build(); decorDOM(); });
+
+const PINKS  = ['#fbb8d0','#f9a4c2','#f790b4','#f57ca6','#fcc8dc','#fab4ce','#f8a0c0','#ffd4e5','#ffc0d7','#ffacc9','#ffe4ef','#ffd0e3','#ffbcd7','#ffa8cb','#ff94bf'];
+const GREENS = ['#6dab82','#5d9e72','#4e9162','#408452','#337742'];
+const rnd = ()=>Math.random();
+const pick = a=>a[~~(rnd()*a.length)];
+
+// ── ROSE ─────────────────────────────────────────────────────────────
+class Rose {
+  constructor(bx, by, fx, fy, size, delay, zDepth) {
+    this.bx=bx; this.by=by; this.fx=fx; this.fy=fy;
+    this.size=size; this.zDepth=zDepth; // 0=back 1=front
+    this.age=-delay; this.bloom=0;
+    this.pc=pick(PINKS); this.pc2=pick(PINKS); this.gc=pick(GREENS);
+    this.rot=(rnd()-0.5)*0.35;
+    this.petN=5+~~(rnd()*4);
+    this.swayA=(0.8+rnd()*2.5)*(1-zDepth*0.3);
+    this.swayS=0.003+rnd()*0.008;
+    this.swayP=rnd()*Math.PI*2;
+    this.sway=0;
+    // control point bends stem naturally toward flower
+    const mx=(bx+fx)/2, my=(by+fy)/2;
+    this.cpx=mx+(rnd()-0.5)*50;
+    this.cpy=my-Math.abs(by-fy)*0.15;
+  }
+
+  update(t) {
+    if(this.age<0){this.age++;return false;}
+    this.age++;
+    this.bloom=Math.min(1,this.age/65);
+    this.sway=Math.sin(t*this.swayS+this.swayP)*this.swayA;
+    return true;
+  }
+
+  flowerPos() {
+    const b=this.bloom;
+    return {
+      x:(1-b)*(1-b)*this.bx+2*(1-b)*b*this.cpx+b*b*this.fx+this.sway,
+      y:(1-b)*(1-b)*this.by+2*(1-b)*b*this.cpy+b*b*this.fy
+    };
+  }
+
+  drawStem() {
+    const b=this.bloom; if(b<0.02)return;
+    const s=this.size;
+    const STEPS=isMob?6:10;
+    const pts=[];
+    for(let i=0;i<=STEPS;i++){
+      const tt=(i/STEPS)*b;
+      pts.push({
+        x:(1-tt)*(1-tt)*this.bx+2*(1-tt)*tt*this.cpx+tt*tt*this.fx+this.sway*(tt/b),
+        y:(1-tt)*(1-tt)*this.by+2*(1-tt)*tt*this.cpy+tt*tt*this.fy
+      });
+    }
+    ct.save();
+    ct.strokeStyle=this.gc;
+    ct.lineWidth=Math.max(0.5,s*0.11*b);
+    ct.lineCap='round';
+    ct.beginPath(); ct.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++) ct.lineTo(pts[i].x,pts[i].y);
+    ct.stroke();
+    if(b>0.42){
+      const lb=Math.min(1,(b-0.42)/0.52);
+      const lp=pts[~~(pts.length*0.44)];
+      this._leaf(lp.x,lp.y,-0.62+this.rot*0.4,lb,s);
+    }
+    if(b>0.65){
+      const lb2=Math.min(1,(b-0.65)/0.35);
+      const lp2=pts[~~(pts.length*0.66)];
+      this._leaf(lp2.x,lp2.y,0.66-this.rot*0.4,lb2,s*0.78);
+    }
+    ct.restore();
+  }
+
+  _leaf(x,y,angle,sc,s){
+    ct.save(); ct.translate(x,y); ct.rotate(angle); ct.scale(sc,sc);
+    ct.beginPath(); ct.moveTo(0,0);
+    ct.bezierCurveTo(-s*.95,-s*.27,-s*1.25,-s*.92,0,-s*1.18);
+    ct.bezierCurveTo(s*.19,-s*.46,s*.11,-s*.14,0,0);
+    ct.fillStyle=this.gc; ct.fill(); ct.restore();
+  }
+
+  drawFlower(fx,fy){
+    const s=this.size*this.bloom; if(s<1)return;
+    ct.save(); ct.translate(fx,fy); ct.rotate(this.rot+this.sway*0.02);
+    const outerN=this.petN+4;
+    // outer petals
+    for(let i=0;i<outerN;i++){
+      const a=(i/outerN)*Math.PI*2;
+      ct.save(); ct.rotate(a);
+      const g=ct.createRadialGradient(0,-s*.18,0,0,-s*.74,s);
+      g.addColorStop(0,'#fff6f9'); g.addColorStop(0.48,this.pc); g.addColorStop(1,this.pc2+'99');
+      ct.fillStyle=g; ct.beginPath();
+      ct.ellipse(0,-s*.74,s*.34,s*.48,0,0,Math.PI*2); ct.fill(); ct.restore();
+    }
+    // mid petals
+    for(let i=0;i<this.petN;i++){
+      const a=(i/this.petN)*Math.PI*2+0.31;
+      ct.save(); ct.rotate(a);
+      const g=ct.createRadialGradient(0,-s*.1,0,0,-s*.44,s*.65);
+      g.addColorStop(0,'#fff1f5'); g.addColorStop(1,this.pc+'cc');
+      ct.fillStyle=g; ct.beginPath();
+      ct.ellipse(0,-s*.46,s*.24,s*.36,0,0,Math.PI*2); ct.fill(); ct.restore();
+    }
+    // inner petals
+    const iN=isMob?4:5;
+    for(let i=0;i<iN;i++){
+      const a=(i/iN)*Math.PI*2+0.75;
+      ct.save(); ct.rotate(a); ct.fillStyle='#fff5f8ee';
+      ct.beginPath(); ct.ellipse(0,-(s*.15+i*s*.02),s*.13,s*.22,0,0,Math.PI*2);
+      ct.fill(); ct.restore();
+    }
+    // center
+    const cg=ct.createRadialGradient(0,0,0,0,0,s*.17);
+    cg.addColorStop(0,'#fff2f6'); cg.addColorStop(1,this.pc);
+    ct.fillStyle=cg; ct.beginPath(); ct.arc(0,0,s*.17,0,Math.PI*2); ct.fill();
+    ct.restore();
+  }
+
+  draw(t){
+    if(!this.update(t))return;
+    this.drawStem();
+    const{x,y}=this.flowerPos();
+    this.drawFlower(x,y);
+  }
+}
+
+// ── FALLING PETAL ────────────────────────────────────────────────────
+class Petal {
+  constructor(rand){
+    this.x=rnd()*W; this.y=rand?rnd()*H:-15;
+    this.sz=2+rnd()*5; this.vy=0.28+rnd()*.9;
+    this.vx=(rnd()-.5)*.7; this.r=rnd()*Math.PI*2;
+    this.rs=(rnd()-.5)*.04; this.c=pick(PINKS); this.op=0.28+rnd()*.45;
+  }
+  update(){ this.y+=this.vy; this.x+=this.vx+Math.sin(this.y*.022)*.55; this.r+=this.rs; if(this.y>H+15){this.y=-15;this.x=rnd()*W;} }
+  draw(){ ct.save(); ct.translate(this.x,this.y); ct.rotate(this.r); ct.globalAlpha=this.op; ct.fillStyle=this.c; ct.beginPath(); ct.ellipse(0,0,this.sz,this.sz*.4,0,0,Math.PI*2); ct.fill(); ct.restore(); }
+}
+
+let roses=[], sorted=[], petals=[];
+
+// ── Build dome bouquet ───────────────────────────────────────────────
+function build(){
+  roses=[];
+
+  // Bouquet geometry
+  const cx   = W * 0.5;
+  const stemBase = H * 0.91;           // where stems converge (hand)
+  const domeCenter = H * (isMob ? 0.38 : 0.40); // dome visual center
+  const R    = Math.min(W * 0.42, H * 0.42);     // dome radius
+
+  /*
+   * Roses arranged in concentric RINGS on a hemisphere.
+   * Each ring i has θi polar angle from top.
+   * 2D projection:  ring radius = R·sin(θ),  y offset = -R·cos(θ)
+   * Ring 0 = top center, Ring N = outer equator edge (widest, lowest)
+   */
+  const rings = isMob
+    ? [ {n:1,θ:0},{n:6,θ:22},{n:11,θ:38},{n:15,θ:54},{n:14,θ:68},{n:13,θ:80} ]     // 60
+    : [ {n:1,θ:0},{n:7,θ:18},{n:13,θ:32},{n:18,θ:46},{n:22,θ:58},{n:24,θ:68},{n:15,θ:78} ]; // 100
+
+  let delay=0;
+  rings.forEach((ring,ri)=>{
+    const theta = ring.θ * Math.PI/180;
+    const r2d   = R * Math.sin(theta);          // horizontal spread
+    const yOff  = -R * Math.cos(theta);         // vertical offset from domeCenter
+    const zDepth = ri / (rings.length-1);       // 0=top(back) 1=bottom(front)
+    // Size: slightly larger at equator (front), smaller at top (back)
+    const baseSize = (isMob ? 11 : 13) + zDepth * (isMob ? 5 : 6);
+
+    for(let j=0;j<ring.n;j++){
+      const angle = ring.n===1 ? 0 : (j/ring.n)*Math.PI*2 - Math.PI/2 + (ri%2)*Math.PI/ring.n;
+      // Flower target position on the dome
+      const fx = cx + Math.cos(angle)*r2d + (rnd()-.5)*8;
+      const fy = domeCenter + yOff          + (rnd()-.5)*8;
+      // Stem base: slightly spread near the hand
+      const bx = cx + (rnd()-.5)*W*0.08;
+      const by = stemBase + (rnd()-.5)*H*0.015;
+      const size = baseSize + (rnd()-.5)*3;
+      roses.push(new Rose(bx,by,fx,fy,size,delay,zDepth));
+      delay += isMob ? 5 : 4;
+    }
+  });
+
+  // Back-to-front sort (top of dome first, equator last)
+  sorted = [...roses].sort((a,b)=>a.fy-b.fy);
+  petals = Array.from({length:isMob?22:38},()=>new Petal(true));
+}
+
+// ── Ribbon / wrap at stem base ───────────────────────────────────────
+function drawRibbon(){
+  const cx=W*.5, gy=H*.91;
+  const bw=isMob?22:30, bh=isMob?30:40;
+  // stem bundle wrap
+  const wg=ct.createLinearGradient(cx-bw,gy,cx+bw,gy);
+  wg.addColorStop(0,'#f7a0c0'); wg.addColorStop(0.5,'#ffd0e5'); wg.addColorStop(1,'#f7a0c0');
+  ct.save();
+  ct.fillStyle=wg;
+  ct.beginPath();
+  ct.roundRect(cx-bw,gy-4,bw*2,bh,6);
+  ct.fill();
+  // ribbon band
+  ct.fillStyle='#ec7aaa';
+  ct.fillRect(cx-bw,gy+4,bw*2,6);
+  // bow left
+  ct.beginPath();
+  ct.moveTo(cx-4,gy+7);
+  ct.bezierCurveTo(cx-bw-8,gy-10,cx-bw-16,gy+22,cx-4,gy+11);
+  ct.fillStyle='#f490ba'; ct.fill();
+  // bow right
+  ct.beginPath();
+  ct.moveTo(cx+4,gy+7);
+  ct.bezierCurveTo(cx+bw+8,gy-10,cx+bw+16,gy+22,cx+4,gy+11);
+  ct.fill();
+  // bow center knot
+  const kg=ct.createRadialGradient(cx,gy+9,1,cx,gy+9,7);
+  kg.addColorStop(0,'#ffd0e8'); kg.addColorStop(1,'#e8609a');
+  ct.fillStyle=kg;
+  ct.beginPath(); ct.ellipse(cx,gy+9,7,5,0,0,Math.PI*2); ct.fill();
+  ct.restore();
+}
+
+// ── Background vignette ───────────────────────────────────────────────
+function drawBg(){
+  const g=ct.createRadialGradient(W/2,H*.4,H*.08,W/2,H*.5,H*.85);
+  g.addColorStop(0,'rgba(255,235,248,0)');
+  g.addColorStop(1,'rgba(180,70,115,0.09)');
+  ct.fillStyle=g; ct.fillRect(0,0,W,H);
+}
+
+// ── DOM sparkles & hearts ─────────────────────────────────────────────
+function decorDOM(){
+  const hl=document.getElementById('hl'); hl.innerHTML='';
+  const hc=['♥','❤','💗','💕','💖','🌸','✿'];
+  const hN=isMob?12:20, sN=isMob?20:35;
+  for(let i=0;i<hN;i++){
+    const el=document.createElement('div'); el.className='h';
+    el.textContent=pick(hc);
+    el.style.cssText=`left:${rnd()*90}%;bottom:${rnd()*60}%;font-size:${0.38+rnd()*.9}rem;animation-duration:${4+rnd()*5}s;animation-delay:${rnd()*7}s`;
+    hl.appendChild(el);
+  }
+  for(let i=0;i<sN;i++){
+    const sp=document.createElement('div'); sp.className='sp';
+    sp.style.cssText=`left:${rnd()*100}%;top:${rnd()*100}%;animation-duration:${1.5+rnd()*3.5}s;animation-delay:${rnd()*6}s`;
+    hl.appendChild(sp);
+  }
+}
+
+// ── Render loop ───────────────────────────────────────────────────────
+let last=0;
+function animate(ts){
+  requestAnimationFrame(animate);
+  if(document.hidden)return;
+  const delta=ts-last; if(delta<14)return; last=ts;
+  ct.clearRect(0,0,W,H);
+  drawBg();
+  const t=ts*.001;
+  sorted.forEach(r=>r.draw(t));
+  drawRibbon();
+  petals.forEach(p=>{p.update();p.draw();});
+}
+
+build(); decorDOM(); requestAnimationFrame(animate);
+</script>
+</body>
+</html>
